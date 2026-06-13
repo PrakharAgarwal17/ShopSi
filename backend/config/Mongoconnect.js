@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 
-
 export function mongoconnect() {
   try {
     const MONGOURI = `${process.env.MONGO_URL}/ecommerce-2`;

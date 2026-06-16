@@ -1,40 +1,78 @@
 import UserModels from "../UserModels.js";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken"
+import jwt from "jsonwebtoken";
 
-export default async function (req, res) {
+export default async function login(req, res) {
   try {
-    const jwttoken = process.env.JWT
+    const jwtSecret = process.env.JWT;
+
+    if (!jwtSecret) {
+      return res.status(500).json({
+        message: "JWT secret is not configured",
+      });
+    }
+
     const { email, password } = req.body;
+
     if (!email || !password) {
-      return res.status(400).json({ message: "All fields must be inputted" });
+      return res.status(400).json({
+        message: "Email and password are required",
+      });
     }
-    const userexist = await UserModels.findOne({ email: email });
+
+    const userexist = await UserModels.findOne({ email });
+
     if (!userexist) {
-      return res.status(500).json({message:"User not exist signup first "});
+      return res.status(404).json({
+        message: "User does not exist. Please sign up first.",
+      });
     }
-    const userpass = userexist.password
 
-    if(!userpass) {
-      return res.status(400).json({message : "user not exist"})
+    const checkpass = await bcrypt.compare(
+      password,
+      userexist.password
+    );
+
+    if (!checkpass) {
+      return res.status(401).json({
+        message: "Invalid email or password",
+      });
     }
-    const checkpass =await bcrypt.compare(password,userpass)
-    
-    const token=jwt.sign({id:userexist._id,email}, jwttoken)
 
-    res.cookie("token", token,{
-        httpOnly:true,
-        maxAge:1000*60*60*24*15
-    })
-     const user = {
+    const token = jwt.sign(
+      {
+        id: userexist._id,
+        email: userexist.email,
+      },
+      jwtSecret,
+      {
+        expiresIn: "7d",
+      }
+    );
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    const user = {
+      id: userexist._id,
       name: userexist.name,
-      contact: userexist.contact
-    }
-    return res.status(200).json({message:"user successfully login" , user })
-    
-    
+      email: userexist.email,
+      contact: userexist.contact,
+    };
+
+    return res.status(200).json({
+      message: "User logged in successfully",
+      user,
+    });
   } catch (err) {
-    console.log(err)
-    return res.status(500).json({message:"Something went wrong"})
+    console.error("Login Error:", err);
+
+    return res.status(500).json({
+      message: "Something went wrong",
+    });
   }
 }

@@ -1,56 +1,59 @@
-import brcypt from "bcrypt"
-import jwt from "jsonwebtoken"
-import UserModels from "../UserModels.js";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import User from "../UserModels.js"
 
-export default async function SignUp(req, res) {
+export const signUp = async (req, res) => {
   try {
-    const jwttoken = process.env.JWT
     const { name, email, password, confirmPassword, contact } = req.body;
-    console.log({ name, email, password, confirmPassword, contact })
 
     if (!name || !email || !password || !confirmPassword || !contact) {
-      return res.status(400).json({ message: "All fields must be filled" });
-    }
-    const userexist = await UserModels.findOne({ email: email });
-    if (userexist) {
-      return res.status(500).json({message:"User already exist"});
-    }
-    if(password!==confirmPassword){
-        return res.status(400).json({messgae:"Password doesnt match"})
+      return res.status(400).json({ message: "All fields are required" });
     }
 
-    const hashpass = await brcypt.hash(password , 10)
-        if(!hashpass) {
-    
-      return res.status(404).json({message : "can not create account due to server issue"})
+    if (password !== confirmPassword) {
+      return res.status(400).json({ message: "Passwords do not match" });
     }
 
-    const createUser=await UserModels.create({name,email,password:hashpass,contact})
-      
-    if(!createUser) {
-      return res.status(500).json({message: "user not created try again "})
-    }
-    
-    const token= jwt.sign({id:createUser._id,email} , jwttoken)
-    
-    if(!token) {
-      return res.status(400).json({message : "no token assign"})
+    const existingUser = await User.findOne({ email });
+
+    if (existingUser) {
+      return res.status(409).json({ message: "User already exists" });
     }
 
-    res.cookie("token",token , {
-      httpOnly:true,
-      maxAge:1000*60*60*24*15
-    })
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = {
-      name: createUser.name,
-      contact:createUser.contact
-    }
-    
-   res.status(200).json({message:"Done signup", user})
-    
-  } catch (err) { 
-    console.log(err);
-    return res.status(500).json({message:"Something went wrong"})
+    const user = await User.create({
+      name,
+      email,
+      password: hashedPassword,
+      contact,
+    });
+
+    const token = jwt.sign(
+      { id: user._id, email: user.email },
+      process.env.JWT,
+      { expiresIn: "7d" }
+    );
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "lax",   // ← proxy ke baad same-origin ban jaata hai, lax kaam karta hai
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Signup successful",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        contact: user.contact,
+      },
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ message: "Internal Server Error" });
   }
-}
+};

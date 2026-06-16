@@ -1,4 +1,4 @@
-import SignUp from "./api/signup"
+import SignUp from "./api/SignUp"
 
 
 function App() {

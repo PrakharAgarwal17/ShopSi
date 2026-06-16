@@ -7,4 +7,16 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    watch: {
+      usePolling: true,  // ← Windows file watcher fix
+    },
+    proxy: {
+      "/user": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+        secure: false,
+      }
+    }
+  }
 })

@@ -8,7 +8,7 @@ export function ErrorNotification () {
       <div>
         <h3 className="font-semibold">Error</h3>
         <p className="text-sm text-zinc-400">
-         Login unsuccessful.
+         Login unsuccessfulll.
         </p>
       </div>
     </div>
